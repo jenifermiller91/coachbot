@@ -19,8 +19,8 @@ Respond with:
 2. A JSON block in <json>...</json> tags with:
   - "highlights": object, keys: pitcher,catcher,first_b,second_b,shortstop,third_b,left_f,center_f,right_f — set true for key players
   - "arrows": array of {x1,y1,x2,y2} for player movements. Pixel coords:
-      home(210,345) first(320,250) second(210,155) third(100,250)
-      pitcher(210,220) catcher(210,368) first_b(340,235) second_b(280,185) shortstop(145,185) third_b(82,235) left_f(95,100) center_f(210,70) right_f(325,100)
+      home(210,345) first(310,245) second(210,145) third(110,245)
+      pitcher(210,240) catcher(210,368) first_b(330,228) second_b(265,180) shortstop(155,180) third_b(90,228) left_f(115,125) center_f(210,95) right_f(305,125)
   - "ballLandX","ballLandY": where ball lands
   - "tip": one short memorable tip for kids
 

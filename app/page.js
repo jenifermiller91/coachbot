@@ -35,15 +35,22 @@ const POSITIONS = {
   right_f:   { x: 305, y: 125, label: "RF" },
 };
 
+const POSITION_NAMES = {
+  pitcher: "Pitcher", catcher: "Catcher", first_b: "First Base", second_b: "Second Base",
+  shortstop: "Shortstop", third_b: "Third Base", left_f: "Left Field", center_f: "Center Field", right_f: "Right Field",
+};
+const YOU_COLOR = "#ffd700";
+
 const BASE_RUNNER_COLORS = { first: "#ff6b35", second: "#ffd700", third: "#ff4466" };
 
+// Situations only — Coach Bot answers them for whatever position the player picked
 const SCENARIOS = [
-  "Runner on 2nd and 3rd, fly ball to left field — what does the 2nd baseman do?",
-  "Bases loaded, ground ball to shortstop — who covers 2nd?",
-  "Runner on 1st, bunt down 3rd base line — what does the 1st baseman do?",
-  "Runner on 1st, fly ball to right field — what does the runner do?",
-  "No runners, ground ball to 3rd — where does the throw go?",
-  "Runner on 2nd, single to right — does the runner score?",
+  "No runners, ground ball to shortstop",
+  "Runner on 1st, ground ball to second base",
+  "Bases loaded, ground ball to shortstop",
+  "Runner on 2nd and 3rd, fly ball to left field",
+  "Runner on 1st, bunt down the 3rd base line",
+  "Runner on 2nd, single to right field",
 ];
 
 function parseRunners(text) {
@@ -55,7 +62,7 @@ function parseRunners(text) {
   return runners;
 }
 
-function Field({ runners, highlights, ballPos }) {
+function Field({ runners, highlights, ballPos, myPos, onPickPosition }) {
   return (
     <svg width={FIELD_W} height={FIELD_H} viewBox={`0 0 ${FIELD_W} ${FIELD_H}`} style={{ display: "block", borderRadius: 12 }}>
       <defs>
@@ -101,12 +108,21 @@ function Field({ runners, highlights, ballPos }) {
         );
       })}
       {Object.entries(POSITIONS).map(([key, pos]) => {
-        const lit = highlights && highlights[key];
+        const isMe = key === myPos;
+        const lit = !isMe && highlights && highlights[key];
+        const fill = isMe ? YOU_COLOR : lit ? "#00ffcc" : "#4db8ff";
         return (
-          <g key={key}>
-            {lit && <circle cx={pos.x} cy={pos.y} r={14} fill="#00ffcc" opacity={0.18}><animate attributeName="r" values="12;20;12" dur="1.2s" repeatCount="indefinite" /></circle>}
-            <circle cx={pos.x} cy={pos.y} r={9} fill={lit?"#00ffcc":"#4db8ff"} stroke="#0a0a0a" strokeWidth={1.5} />
+          <g key={key} onClick={onPickPosition ? () => onPickPosition(key) : undefined}
+            style={{ cursor: onPickPosition ? "pointer" : "default" }}>
+            {(lit || isMe) && <circle cx={pos.x} cy={pos.y} r={14} fill={fill} opacity={0.2}><animate attributeName="r" values="12;20;12" dur="1.2s" repeatCount="indefinite" /></circle>}
+            <circle cx={pos.x} cy={pos.y} r={isMe ? 11 : 9} fill={fill} stroke={isMe ? "#fff" : "#0a0a0a"} strokeWidth={isMe ? 2 : 1.5} />
             <text x={pos.x} y={pos.y+4} textAnchor="middle" fontSize={7} fill="#0a0a0a" fontFamily="monospace" fontWeight="bold">{pos.label}</text>
+            {isMe && (
+              <g>
+                <rect x={pos.x-17} y={pos.y-30} width={34} height={13} rx={3} fill={YOU_COLOR} />
+                <text x={pos.x} y={pos.y-20.5} textAnchor="middle" fontSize={7} fill="#0a0a0a" fontFamily="monospace" fontWeight="bold">YOU</text>
+              </g>
+            )}
           </g>
         );
       })}
@@ -132,8 +148,21 @@ function Field({ runners, highlights, ballPos }) {
             stroke="#00ffcc" strokeWidth={2} strokeDasharray="6,3" markerEnd={`url(#a${i})`} opacity={0.85} />
         </g>
       ))}
-      <rect x={0} y={0} width={FIELD_W} height={FIELD_H} fill="url(#sl)" />
-      <rect x={0} y={0} width={FIELD_W} height={FIELD_H} fill="url(#vg)" />
+      {highlights && highlights.youArrow && (() => {
+        const a = highlights.youArrow;
+        return (
+          <g>
+            <defs>
+              <marker id="youA" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                <path d="M0,0 L0,7 L7,3.5 z" fill={YOU_COLOR} />
+              </marker>
+            </defs>
+            <line x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke={YOU_COLOR} strokeWidth={3.5} markerEnd="url(#youA)" />
+          </g>
+        );
+      })()}
+      <rect x={0} y={0} width={FIELD_W} height={FIELD_H} fill="url(#sl)" pointerEvents="none" />
+      <rect x={0} y={0} width={FIELD_W} height={FIELD_H} fill="url(#vg)" pointerEvents="none" />
     </svg>
   );
 }
@@ -146,10 +175,20 @@ export default function Home() {
   const [highlights, setHighlights] = useState(null);
   const [ballPos, setBallPos] = useState(null);
   const [history, setHistory] = useState([]);
+  const [myPos, setMyPos] = useState(null); // which position the visitor plays
 
-  const handleAsk = async (text) => {
+  const pickPosition = (key) => {
+    setMyPos(key);
+    setResponse(null);
+    setHighlights(null);
+    setBallPos(null);
+    setRunners({});
+  };
+
+  const handleAsk = async (text, posOverride) => {
     const q = text || scenario;
-    if (!q.trim()) return;
+    const pos = posOverride || myPos;
+    if (!q.trim() || !pos) return;
     setLoading(true);
     setResponse(null);
     setHighlights(null);
@@ -160,7 +199,7 @@ export default function Home() {
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scenario: q }),
+        body: JSON.stringify({ scenario: q, position: pos }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Server error");
@@ -176,13 +215,13 @@ export default function Home() {
       const explanation = fullText.replace(/<json>[\s\S]*?<\/json>/, "").replace(/```json[\s\S]*?```/, "").trim();
 
       if (parsed) {
-        setHighlights({ ...parsed.highlights, arrows: parsed.arrows || [] });
+        setHighlights({ ...parsed.highlights, arrows: parsed.arrows || [], youArrow: parsed.youArrow || null });
         if (parsed.ballLandX && parsed.ballLandY) setBallPos({ x: parsed.ballLandX, y: parsed.ballLandY });
         setResponse({ text: explanation, tip: parsed.tip });
       } else {
         setResponse({ text: explanation || fullText, tip: null });
       }
-      setHistory(h => [{ q }, ...h].slice(0, 5));
+      setHistory(h => [{ q, pos }, ...h].slice(0, 5));
     } catch(e) {
       setResponse({ text: `⚠️ ${e.message}`, tip: null });
     }
@@ -207,22 +246,26 @@ export default function Home() {
         .abtn{background:#00ffcc;border:none;color:#0a0a12;font-family:'Press Start 2P',monospace;font-size:10px;padding:14px 24px;cursor:pointer;border-radius:4px;transition:all .15s;width:100%;margin-top:10px}
         .abtn:hover{background:#66ffe8}
         .abtn:disabled{background:#1a3a32;color:#00ffcc44;cursor:not-allowed}
+        .pbtn{background:#0a1512;border:1px solid #00ffcc44;color:#00ffcc;font-family:'Press Start 2P',monospace;font-size:7px;padding:10px 4px;cursor:pointer;border-radius:4px;transition:all .15s;line-height:1.6}
+        .pbtn:hover{background:#ffd70022;border-color:#ffd700;color:#ffd700}
+        .cbtn{background:transparent;border:1px solid #ffd70066;color:#ffd700;font-family:'Press Start 2P',monospace;font-size:6px;padding:6px 8px;cursor:pointer;border-radius:4px}
+        .cbtn:hover{background:#ffd70022}
         .tinput{width:100%;background:#060e0c;border:1px solid #00ffcc22;border-radius:4px;color:#00ffcc;font-family:'Press Start 2P',monospace;font-size:8px;padding:10px;resize:none;height:80px;outline:none;line-height:1.8}
       `}</style>
 
       <div className="crt" style={{ textAlign:"center", marginBottom:24 }}>
         <div style={{ fontSize:11, color:"#ff6b35", letterSpacing:3, marginBottom:6 }}>⚾ PEE-WEE BASEBALL ⚾</div>
         <div style={{ fontSize:20, color:"#00ffcc", letterSpacing:2 }}>COACH BOT</div>
-        <div style={{ fontSize:7, color:"#00ffcc66", marginTop:8, letterSpacing:2 }}>INSERT SCENARIO TO CONTINUE <span className="blink">▮</span></div>
+        <div style={{ fontSize:7, color:"#00ffcc66", marginTop:8, letterSpacing:2 }}>{myPos ? "INSERT SCENARIO TO CONTINUE" : "PICK YOUR POSITION TO START"} <span className="blink">▮</span></div>
       </div>
 
       <div style={{ display:"flex", gap:20, width:"100%", maxWidth:900, alignItems:"flex-start", flexWrap:"wrap", justifyContent:"center" }}>
         <div style={{ flexShrink:0 }}>
           <div style={{ border:"2px solid #00ffcc33", borderRadius:14, overflow:"hidden", boxShadow:"0 0 40px rgba(0,255,204,.1)" }}>
-            <Field runners={runners} highlights={highlights} ballPos={ballPos} />
+            <Field runners={runners} highlights={highlights} ballPos={ballPos} myPos={myPos} onPickPosition={myPos ? null : pickPosition} />
           </div>
           <div style={{ marginTop:10, display:"flex", gap:14, flexWrap:"wrap", justifyContent:"center" }}>
-            {[["#4db8ff","Fielder"],["#00ffcc","Key Player"],["#ffd700","Runner"],["#f5f5f5","Ball"]].map(([c,l]) => (
+            {[[YOU_COLOR,"You"],["#4db8ff","Fielder"],["#00ffcc","Key Player"],["#ff6b35","Runner"],["#f5f5f5","Ball"]].map(([c,l]) => (
               <div key={l} style={{ display:"flex", alignItems:"center", gap:5 }}>
                 <div style={{ width:10, height:10, borderRadius:"50%", background:c }} />
                 <span style={{ fontSize:6, color:"#00ffcc88" }}>{l}</span>
@@ -232,11 +275,31 @@ export default function Home() {
         </div>
 
         <div style={{ flex:1, minWidth:260, display:"flex", flexDirection:"column", gap:14 }}>
+          {!myPos && (
+            <div className="slide-up" style={{ background:"#0d1a16", border:"1px solid #ffd70066", borderRadius:8, padding:14 }}>
+              <div style={{ fontSize:9, color:YOU_COLOR, marginBottom:6 }}>⚾ WHAT POSITION DO YOU PLAY?</div>
+              <div style={{ fontSize:6, color:"#00ffcc88", marginBottom:12, lineHeight:1.8 }}>Tap a button, or tap your spot on the field.</div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:6 }}>
+                {Object.keys(POSITIONS).map(key => (
+                  <button key={key} className="pbtn" onClick={() => pickPosition(key)}>
+                    {POSITIONS[key].label}<br /><span style={{ fontSize:5, opacity:0.7 }}>{POSITION_NAMES[key]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {myPos && (<>
+          <div style={{ background:"#0d1a16", border:"1px solid #ffd70066", borderRadius:8, padding:"10px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+            <span style={{ fontSize:8, color:YOU_COLOR }}>⭐ PLAYING: {POSITION_NAMES[myPos].toUpperCase()}</span>
+            <button className="cbtn" onClick={() => pickPosition(null)}>CHANGE</button>
+          </div>
+
           <div style={{ background:"#0d1a16", border:"1px solid #00ffcc33", borderRadius:8, padding:14 }}>
             <div style={{ fontSize:7, color:"#00ffcc88", marginBottom:8 }}>▶ ENTER SCENARIO</div>
             <textarea className="tinput" value={scenario} onChange={e => setScenario(e.target.value)}
               onKeyDown={e => { if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleAsk();} }}
-              placeholder="e.g. Runner on 2nd, fly ball to center — what does the shortstop do?" />
+              placeholder={`e.g. Runner on 2nd, fly ball to center — what do I do at ${POSITION_NAMES[myPos].toLowerCase()}?`} />
             <button className="abtn" disabled={loading||!scenario.trim()} onClick={() => handleAsk()}>
               {loading ? "THINKING..." : "ASK COACH BOT ▶"}
             </button>
@@ -267,6 +330,7 @@ export default function Home() {
               {SCENARIOS.map((s,i) => <button key={i} className="sbtn" onClick={() => handleAsk(s)}>{s}</button>)}
             </div>
           </div>
+          </>)}
         </div>
       </div>
 
@@ -275,10 +339,10 @@ export default function Home() {
           <div style={{ fontSize:7, color:"#00ffcc33", marginBottom:8 }}>── RECENT PLAYS ──</div>
           {history.map((h,i) => (
             <div key={i} style={{ background:"#0d1a16", border:"1px solid #00ffcc15", borderRadius:6, padding:"8px 12px", marginBottom:6, cursor:"pointer" }}
-              onClick={() => handleAsk(h.q)}
+              onClick={() => { if (h.pos !== myPos) setMyPos(h.pos); handleAsk(h.q, h.pos); }}
               onMouseEnter={e => e.currentTarget.style.borderColor="#00ffcc44"}
               onMouseLeave={e => e.currentTarget.style.borderColor="#00ffcc15"}>
-              <div style={{ fontSize:7, color:"#00ffcc55" }}>▶ {h.q}</div>
+              <div style={{ fontSize:7, color:"#00ffcc55" }}>▶ [{POSITIONS[h.pos].label}] {h.q}</div>
             </div>
           ))}
         </div>

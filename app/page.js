@@ -64,7 +64,7 @@ function parseRunners(text) {
 
 function Field({ runners, highlights, ballPos, myPos, onPickPosition }) {
   return (
-    <svg width={FIELD_W} height={FIELD_H} viewBox={`0 0 ${FIELD_W} ${FIELD_H}`} style={{ display: "block", borderRadius: 12 }}>
+    <svg viewBox={`0 0 ${FIELD_W} ${FIELD_H}`} style={{ display: "block", width: "100%", height: "auto", borderRadius: 12 }}>
       <defs>
         <radialGradient id="gg" cx="50%" cy="55%" r="60%">
           <stop offset="0%" stopColor="#1a4a1a" /><stop offset="100%" stopColor="#0d2e0d" />
@@ -259,8 +259,8 @@ export default function Home() {
         <div style={{ fontSize:7, color:"#00ffcc66", marginTop:8, letterSpacing:2 }}>{myPos ? "INSERT SCENARIO TO CONTINUE" : "PICK YOUR POSITION TO START"} <span className="blink">▮</span></div>
       </div>
 
-      <div style={{ display:"flex", gap:20, width:"100%", maxWidth:900, alignItems:"flex-start", flexWrap:"wrap", justifyContent:"center" }}>
-        <div style={{ flexShrink:0 }}>
+      <div style={{ display:"flex", gap:20, width:"100%", alignItems:"flex-start", flexWrap:"wrap", justifyContent:"center" }}>
+        <div style={{ flex:`2 1 ${FIELD_W}px`, minWidth:0, maxWidth:`max(${FIELD_W}px, calc((100vh - 170px) * ${FIELD_W / FIELD_H}))` }}>
           <div style={{ border:"2px solid #00ffcc33", borderRadius:14, overflow:"hidden", boxShadow:"0 0 40px rgba(0,255,204,.1)" }}>
             <Field runners={runners} highlights={highlights} ballPos={ballPos} myPos={myPos} onPickPosition={myPos ? null : pickPosition} />
           </div>
@@ -335,7 +335,7 @@ export default function Home() {
       </div>
 
       {history.length > 0 && (
-        <div style={{ width:"100%", maxWidth:900, marginTop:20 }}>
+        <div style={{ width:"100%", marginTop:20 }}>
           <div style={{ fontSize:7, color:"#00ffcc33", marginBottom:8 }}>── RECENT PLAYS ──</div>
           {history.map((h,i) => (
             <div key={i} style={{ background:"#0d1a16", border:"1px solid #00ffcc15", borderRadius:6, padding:"8px 12px", marginBottom:6, cursor:"pointer" }}

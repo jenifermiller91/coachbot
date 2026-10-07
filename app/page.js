@@ -205,7 +205,7 @@ export default function Home() {
       </div>
 
       <div style={{ display:"flex", gap:20, width:"100%", alignItems:"flex-start", flexWrap:"wrap", justifyContent:"center" }}>
-        <div style={{ flex:`2 1 ${FIELD_W}px`, minWidth:0, maxWidth:`calc((100vh - 80px) * ${FIELD_W / FIELD_H})` }}>
+        <div style={{ flex:`2 1 ${FIELD_W}px`, minWidth:0, maxWidth:`max(${FIELD_W}px, calc((100vh - 170px) * ${FIELD_W / FIELD_H}))` }}>
           <div style={{ border:"2px solid #00ffcc33", borderRadius:14, overflow:"hidden", boxShadow:"0 0 40px rgba(0,255,204,.1)" }}>
             <Field runners={runners} highlights={highlights} ballPos={ballPos} />
           </div>

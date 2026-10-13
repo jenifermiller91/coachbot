@@ -251,6 +251,7 @@ export default function Home() {
         .cbtn{background:transparent;border:1px solid #ffd70066;color:#ffd700;font-family:'Press Start 2P',monospace;font-size:6px;padding:6px 8px;cursor:pointer;border-radius:4px}
         .cbtn:hover{background:#ffd70022}
         .tinput{width:100%;background:#060e0c;border:1px solid #00ffcc22;border-radius:4px;color:#00ffcc;font-family:'Press Start 2P',monospace;font-size:8px;padding:10px;resize:none;height:80px;outline:none;line-height:1.8}
+        @media (pointer:coarse){.tinput{font-size:16px;font-family:ui-monospace,Menlo,monospace;line-height:1.4;height:100px}}
       `}</style>
 
       <div className="crt" style={{ textAlign:"center", marginBottom:24 }}>
